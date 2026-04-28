@@ -1,0 +1,21 @@
+# Virtual environment
+venv/
+env/
+.venv/
+Scripts/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Jupyter notebooks checkpoints
+.ipynb_checkpoints/
+
+# Large dataset folders (don't push raw data)
+data/
+datasets/
+
+# OS files
+.DS_Store
+Thumbs.db
