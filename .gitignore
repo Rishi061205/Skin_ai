@@ -19,3 +19,7 @@ datasets/
 # OS files
 .DS_Store
 Thumbs.db
+
+package.json
+package_lock.json
+/node_modules

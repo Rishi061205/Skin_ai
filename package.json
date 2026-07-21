@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "react-dropzone": "^19.1.1"
+  }
+}

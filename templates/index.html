@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Skin Lesion Classifier</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #f2f4f3;
+    --surface: #ffffff;
+    --ink: #10151a;
+    --ink-soft: #5c6a66;
+    --ink-faint: #97a29d;
+    --accent: #0e6b5c;
+    --accent-dark: #0a4f45;
+    --accent-soft: #e2f0ec;
+    --line: #dde3e0;
+    --line-strong: #c7d0cc;
+    --amber: #92660f;
+    --amber-soft: #faf1de;
+    --amber-line: #e8d3a0;
+    --radius: 3px;
+    font-size: 16px;
+  }
+
+  *{ box-sizing: border-box; margin:0; padding:0; }
+
+  body{
+    font-family: 'Inter', sans-serif;
+    background: var(--bg);
+    background-image:
+      linear-gradient(var(--line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size: 28px 28px;
+    background-position: -1px -1px;
+    color: var(--ink);
+    min-height: 100vh;
+    padding: 48px 20px 80px;
+  }
+
+  .mono{ font-family: 'IBM Plex Mono', monospace; }
+
+  .frame{
+    max-width: 880px;
+    margin: 0 auto;
+    background: var(--surface);
+    border: 1px solid var(--line-strong);
+    box-shadow: 0 1px 2px rgba(16,21,26,0.04), 0 12px 32px -16px rgba(16,21,26,0.12);
+  }
+
+  /* ── Header ─────────────────────────────────────────── */
+  .header{
+    padding: 28px 36px 24px;
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .header .eyebrow{
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    color: var(--accent);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .header .eyebrow .dot{
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  .header h1{
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 600;
+    font-size: 26px;
+    letter-spacing: -0.01em;
+  }
+  .header .meta{
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-faint);
+    text-align: right;
+    line-height: 1.7;
+  }
+  .header .meta .status-dot{
+    display:inline-block; width:6px; height:6px; border-radius:50%;
+    background: var(--ink-faint); margin-right:6px; position:relative; top:-1px;
+  }
+  .header .meta .status-dot.live{ background:#2f8f5b; box-shadow: 0 0 0 3px #e2f3e9; }
+
+  /* ── Disclaimer ─────────────────────────────────────── */
+  .disclaimer{
+    margin: 24px 36px 0;
+    background: var(--amber-soft);
+    border: 1px solid var(--amber-line);
+    border-left: 3px solid var(--amber);
+    padding: 12px 16px;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+  }
+  .disclaimer svg{ flex-shrink:0; margin-top: 2px; }
+  .disclaimer p{
+    font-size: 12.5px;
+    line-height: 1.55;
+    color: #6b4d13;
+  }
+  .disclaimer strong{ color: #4a3509; }
+
+  /* ── Main grid ──────────────────────────────────────── */
+  .main{
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  @media (max-width: 720px){
+    .main{ grid-template-columns: 1fr; }
+  }
+
+  .panel{ padding: 28px 36px 36px; }
+  .panel + .panel{ border-left: 1px solid var(--line); }
+  @media (max-width: 720px){
+    .panel + .panel{ border-left:none; border-top: 1px solid var(--line); }
+  }
+
+  .panel-label{
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.12em;
+    color: var(--ink-faint);
+    margin-bottom: 14px;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  /* ── Upload / scan area ─────────────────────────────── */
+  .scan-box{
+    position: relative;
+    border: 1px dashed var(--line-strong);
+    aspect-ratio: 1 / 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    overflow: hidden;
+    background: #fafbfa;
+    transition: border-color .15s ease, background .15s ease;
+  }
+  .scan-box:hover{ border-color: var(--accent); background: var(--accent-soft); }
+  .scan-box.has-image{ cursor: default; }
+  .scan-box.has-image:hover{ background: #fafbfa; border-color: var(--line-strong); }
+
+  .scan-box input{ display:none; }
+
+  .upload-prompt{
+    text-align:center;
+    padding: 20px;
+    color: var(--ink-soft);
+  }
+  .upload-prompt svg{ margin: 0 auto 12px; display:block; color: var(--ink-faint); }
+  .upload-prompt .primary{ font-size: 13.5px; font-weight: 500; color: var(--ink); margin-bottom: 4px; }
+  .upload-prompt .secondary{ font-size: 11.5px; color: var(--ink-faint); font-family:'IBM Plex Mono',monospace; }
+
+  .scan-box img{
+    width: 100%; height: 100%; object-fit: cover;
+    display: block;
+  }
+
+  /* corner brackets */
+  .bracket{ position:absolute; width:16px; height:16px; border-color: var(--ink-faint); opacity: .55; }
+  .scan-box.has-image .bracket{ border-color: var(--accent); opacity: .9; }
+  .bracket.tl{ top:8px; left:8px; border-top:1.5px solid; border-left:1.5px solid; }
+  .bracket.tr{ top:8px; right:8px; border-top:1.5px solid; border-right:1.5px solid; }
+  .bracket.bl{ bottom:8px; left:8px; border-bottom:1.5px solid; border-left:1.5px solid; }
+  .bracket.br{ bottom:8px; right:8px; border-bottom:1.5px solid; border-right:1.5px solid; }
+
+  /* scanning sweep */
+  .scanline{
+    position:absolute; left:0; right:0; height:2px;
+    background: linear-gradient(90deg, transparent, var(--accent) 20%, var(--accent) 80%, transparent);
+    box-shadow: 0 0 12px 1px rgba(14,107,92,0.6);
+    top:0;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .scanline.active{
+    opacity: 1;
+    animation: sweep 1.4s ease-in-out infinite;
+  }
+  @keyframes sweep{
+    0%{ top: 4%; }
+    50%{ top: 94%; }
+    100%{ top: 4%; }
+  }
+  .scan-tint{
+    position:absolute; inset:0;
+    background: linear-gradient(180deg, rgba(14,107,92,0.08), rgba(14,107,92,0.0));
+    opacity: 0;
+    pointer-events:none;
+  }
+  .scan-tint.active{ opacity: 1; }
+
+  .file-row{
+    margin-top: 12px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-faint);
+    display:flex;
+    justify-content: space-between;
+    min-height: 16px;
+  }
+  .file-row .clear-btn{
+    color: var(--ink-soft); cursor:pointer; text-decoration: underline; text-underline-offset: 2px;
+  }
+  .file-row .clear-btn:hover{ color: var(--accent); }
+
+  button.run{
+    margin-top: 16px;
+    width: 100%;
+    background: var(--ink);
+    color: #fff;
+    border: none;
+    padding: 12px 20px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background .15s ease;
+    display:flex; align-items:center; justify-content:center; gap:8px;
+  }
+  button.run:hover:not(:disabled){ background: var(--accent-dark); }
+  button.run:disabled{ background:#c9cfcc; cursor:not-allowed; }
+
+  .spinner{
+    width: 12px; height: 12px;
+    border: 1.5px solid rgba(255,255,255,0.35);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin .6s linear infinite;
+  }
+  @keyframes spin{ to{ transform: rotate(360deg); } }
+
+  .error-msg{
+    margin-top: 10px;
+    font-size: 12px;
+    color: #b23b3b;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  /* ── Report panel ───────────────────────────────────── */
+  .report-empty{
+    height: calc(100% - 30px);
+    min-height: 240px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    color: var(--ink-faint);
+    font-size: 12.5px;
+    line-height: 1.6;
+    padding: 20px;
+    border: 1px dashed var(--line);
+  }
+
+  .report{ display:none; }
+  .report.visible{ display:block; }
+
+  .top-result{
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 16px;
+  }
+  .top-result .rlabel{
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 10px; letter-spacing: 0.1em; color: var(--ink-faint);
+    margin-bottom: 6px;
+  }
+  .top-result .rvalue{
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 600;
+    font-size: 21px;
+    color: var(--accent-dark);
+    margin-bottom: 4px;
+  }
+  .top-result .rconf{
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 12px; color: var(--ink-soft);
+  }
+
+  .score-row{
+    display: flex;
+    align-items: baseline;
+    padding: 7px 0;
+    border-bottom: 1px dotted var(--line-strong);
+    font-size: 12.5px;
+    gap: 8px;
+  }
+  .score-row:last-child{ border-bottom:none; }
+  .score-row .sname{
+    white-space: nowrap;
+    color: var(--ink);
+  }
+  .score-row .leader{
+    flex: 1;
+    border-bottom: 1px dotted var(--line-strong);
+    transform: translateY(-3px);
+    min-width: 12px;
+  }
+  .score-row .spct{
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--ink-soft);
+    min-width: 46px;
+    text-align: right;
+  }
+  .score-row.is-top .sname{ font-weight: 600; color: var(--accent-dark); }
+  .score-row.is-top .spct{ color: var(--accent-dark); font-weight:500; }
+
+  .score-bar-track{
+    height: 3px;
+    background: var(--line);
+    margin-top: 4px;
+    overflow: hidden;
+  }
+  .score-bar-fill{
+    height: 100%;
+    background: var(--ink-faint);
+    width: 0%;
+    transition: width .5s cubic-bezier(.2,.8,.2,1);
+  }
+  .score-row.is-top .score-bar-fill{ background: var(--accent); }
+  .score-list .score-row{ display:block; border-bottom: 1px dotted var(--line-strong); padding: 8px 0; }
+  .score-list .score-row .head{ display:flex; justify-content:space-between; gap:8px; font-size:12.5px; }
+
+  /* ── Footer ─────────────────────────────────────────── */
+  .footer{
+    border-top: 1px solid var(--line);
+    padding: 14px 36px;
+    display:flex;
+    justify-content: space-between;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10.5px;
+    color: var(--ink-faint);
+    letter-spacing: 0.02em;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .scanline.active{ animation: none; opacity: .6; }
+    .spinner{ animation: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="frame">
+
+  <div class="header">
+    <div>
+      <div class="eyebrow"><span class="dot"></span>MODEL INFERENCE · IMAGE CLASSIFIER</div>
+      <h1>Skin Lesion Classifier</h1>
+    </div>
+    <div class="meta" id="header-meta">
+      <div><span class="status-dot" id="status-dot"></span><span id="status-text">connecting…</span></div>
+      <div id="status-classes">— classes</div>
+    </div>
+  </div>
+
+  <div class="disclaimer">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M8 1L15 14H1L8 1Z" stroke="#92660f" stroke-width="1.3" stroke-linejoin="round"/>
+      <path d="M8 6V9.5" stroke="#92660f" stroke-width="1.3" stroke-linecap="round"/>
+      <circle cx="8" cy="11.7" r="0.9" fill="#92660f"/>
+    </svg>
+    <p><strong>Research demo, not a diagnostic device.</strong> This tool outputs a statistical model prediction and is not validated for clinical use. It cannot replace an examination by a dermatologist or physician. If you have a skin concern, please consult a qualified healthcare professional.</p>
+  </div>
+
+  <div class="main">
+
+    <div class="panel">
+      <div class="panel-label"><span>01 · INPUT IMAGE</span><span id="dims-label"></span></div>
+
+      <label class="scan-box" id="scan-box" for="file-input">
+        <input type="file" id="file-input" accept="image/*">
+        <div class="upload-prompt" id="upload-prompt">
+          <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="3" y="4" width="22" height="18" rx="1" stroke="currentColor" stroke-width="1.4"/>
+            <circle cx="9" cy="10" r="2" stroke="currentColor" stroke-width="1.4"/>
+            <path d="M3 18L10 12L15 16L20 11L25 16" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+          </svg>
+          <div class="primary">Drop or click to upload</div>
+          <div class="secondary">JPG · PNG</div>
+        </div>
+        <img id="preview" src="" alt="" style="display:none;">
+        <div class="bracket tl"></div>
+        <div class="bracket tr"></div>
+        <div class="bracket bl"></div>
+        <div class="bracket br"></div>
+        <div class="scan-tint" id="scan-tint"></div>
+        <div class="scanline" id="scanline"></div>
+      </label>
+
+      <div class="file-row">
+        <span id="file-name">no file selected</span>
+        <span class="clear-btn" id="clear-btn" style="display:none;">clear</span>
+      </div>
+
+      <button class="run" id="run-btn" disabled>Run analysis</button>
+      <div class="error-msg" id="error-msg"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-label"><span>02 · CLASSIFICATION REPORT</span><span id="report-time"></span></div>
+
+      <div class="report-empty" id="report-empty">
+        Awaiting input image.<br>Results will populate here once analysis runs.
+      </div>
+
+      <div class="report" id="report">
+        <div class="top-result">
+          <div class="rlabel">TOP PREDICTION</div>
+          <div class="rvalue" id="top-label">—</div>
+          <div class="rconf mono" id="top-conf">—</div>
+        </div>
+        <div class="score-list" id="score-list"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="footer">
+    <span>EfficientNet-B3 · 224×224</span>
+    <span id="footer-device">device: —</span>
+  </div>
+
+</div>
+
+<script>
+const fileInput   = document.getElementById('file-input');
+const scanBox     = document.getElementById('scan-box');
+const uploadPrompt = document.getElementById('upload-prompt');
+const preview      = document.getElementById('preview');
+const fileName      = document.getElementById('file-name');
+const clearBtn      = document.getElementById('clear-btn');
+const runBtn         = document.getElementById('run-btn');
+const errorMsg        = document.getElementById('error-msg');
+const scanline         = document.getElementById('scanline');
+const scanTint          = document.getElementById('scan-tint');
+const reportEmpty        = document.getElementById('report-empty');
+const report               = document.getElementById('report');
+const topLabel               = document.getElementById('top-label');
+const topConf                  = document.getElementById('top-conf');
+const scoreList                  = document.getElementById('score-list');
+const dimsLabel                    = document.getElementById('dims-label');
+const reportTime                     = document.getElementById('report-time');
+
+let selectedFile = null;
+
+fileInput.addEventListener('change', (e) => {
+  const f = e.target.files[0];
+  if (!f) return;
+  selectedFile = f;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    preview.src = ev.target.result;
+    preview.style.display = 'block';
+    uploadPrompt.style.display = 'none';
+    scanBox.classList.add('has-image');
+
+    const img = new Image();
+    img.onload = () => { dimsLabel.textContent = `${img.width}×${img.height}px`; };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(f);
+
+  fileName.textContent = f.name;
+  clearBtn.style.display = 'inline';
+  runBtn.disabled = false;
+  errorMsg.textContent = '';
+  report.classList.remove('visible');
+  reportEmpty.style.display = 'flex';
+});
+
+clearBtn.addEventListener('click', (e) => {
+  e.preventDefault();
+  selectedFile = null;
+  fileInput.value = '';
+  preview.style.display = 'none';
+  uploadPrompt.style.display = 'block';
+  scanBox.classList.remove('has-image');
+  fileName.textContent = 'no file selected';
+  clearBtn.style.display = 'none';
+  dimsLabel.textContent = '';
+  runBtn.disabled = true;
+  errorMsg.textContent = '';
+  report.classList.remove('visible');
+  reportEmpty.style.display = 'flex';
+});
+
+runBtn.addEventListener('click', async () => {
+  if (!selectedFile) return;
+
+  runBtn.disabled = true;
+  runBtn.innerHTML = '<span class="spinner"></span>Analysing';
+  errorMsg.textContent = '';
+  scanline.classList.add('active');
+  scanTint.classList.add('active');
+
+  const formData = new FormData();
+  formData.append('image', selectedFile);
+
+  try {
+    const res = await fetch('/predict', { method: 'POST', body: formData });
+    const data = await res.json();
+
+    if (data.error) {
+      errorMsg.textContent = 'Error: ' + data.error;
+    } else {
+      renderReport(data);
+    }
+  } catch (err) {
+    errorMsg.textContent = 'Could not reach the inference server.';
+  } finally {
+    scanline.classList.remove('active');
+    scanTint.classList.remove('active');
+    runBtn.disabled = false;
+    runBtn.textContent = 'Run analysis';
+  }
+});
+
+function renderReport(data){
+  reportEmpty.style.display = 'none';
+  report.classList.add('visible');
+
+  topLabel.textContent = data.prediction;
+  topConf.textContent = `confidence ${data.confidence.toFixed(1)}%`;
+
+  const now = new Date();
+  reportTime.textContent = now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+
+  scoreList.innerHTML = '';
+  const entries = Object.entries(data.all_scores);
+  const topName = entries[0][0];
+
+  entries.forEach(([name, pct]) => {
+    const row = document.createElement('div');
+    row.className = 'score-row' + (name === topName ? ' is-top' : '');
+    row.innerHTML = `
+      <div class="head">
+        <span class="sname">${name}</span>
+        <span class="spct mono">${pct.toFixed(1)}%</span>
+      </div>
+      <div class="score-bar-track"><div class="score-bar-fill" style="width:0%" data-w="${pct}"></div></div>
+    `;
+    scoreList.appendChild(row);
+  });
+
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    document.querySelectorAll('.score-bar-fill').forEach(b => { b.style.width = b.dataset.w + '%'; });
+  }));
+}
+
+// ── Health check on load ──────────────────────────────
+(async () => {
+  const statusDot  = document.getElementById('status-dot');
+  const statusText = document.getElementById('status-text');
+  const statusClasses = document.getElementById('status-classes');
+  const footerDevice = document.getElementById('footer-device');
+  try {
+    const res = await fetch('/health');
+    const data = await res.json();
+    statusDot.classList.add('live');
+    statusText.textContent = 'model ready';
+    statusClasses.textContent = `${data.classes} classes`;
+    footerDevice.textContent = `device: ${data.device}`;
+  } catch (e) {
+    statusText.textContent = 'offline';
+  }
+})();
+</script>
+
+</body>
+</html>
