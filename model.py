@@ -18,7 +18,7 @@ def build_model(num_classes, pretrained=True):
             └── Dropout(0.3)            [regularization — reduces overfitting]
             └── Linear(1536 → 512)      [intermediate layer]
             └── ReLU + Dropout(0.2)
-            └── Linear(512 → 7)         [one score per disease class]
+            └── Linear(512 → 14)         [one score per disease class]
     """
 
     # Load pretrained backbone. timm handles downloading automatically.
